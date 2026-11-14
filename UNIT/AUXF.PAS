@@ -36,7 +36,7 @@ function  MemAvail : long;
 
 Implementation
 
-uses SysUtils;  { Sleep, GetTickCount64 }
+uses SysUtils{$IFDEF WINDOWS}, PCSpk{$ENDIF};  { Sleep, GetTickCount64; PCSpk: altavoz }
 
 
 
@@ -72,11 +72,13 @@ function Diff (var arg1,arg2; count:word) : boolean;
 procedure Delay (ms:word);
   begin Sleep(ms); end;
 
+{ En Windows el altavoz del PC se emula con waveOut (UNIT/PCSPK.PAS). En
+  Linux sigue sin sonido: el altavoz no es accesible desde userspace. }
 procedure Sound (hz:word);
-  begin { TODO: altavoz PC no portable a Linux userspace; no-op por ahora } end;
+  begin {$IFDEF WINDOWS} SpkSound(hz); {$ENDIF} end;
 
 procedure NoSound;
-  begin { TODO: ver Sound } end;
+  begin {$IFDEF WINDOWS} SpkNoSound; {$ENDIF} end;
 
 function Timer : long;
   { ticks ~18.2 Hz como la cuenta de la BIOS (1 tick ~ 55 ms) }

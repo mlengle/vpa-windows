@@ -254,6 +254,12 @@ the viewer **built in**:
 To watch a fight, open the combat message in the messages screen (**F3**) and
 press **`v`**; the **F5** combat simulator uses the same engine.
 
+**Sound.** The DOS VPA beeped through the PC speaker during battles (beams,
+torpedoes, explosions). This build plays the same square-wave sounds through
+Windows' default audio output. They are off by default: turn them on with
+**`o`** ("Sound") in the combat simulator's settings (**F5**); the setting also
+applies when viewing battles from the messages.
+
 ---
 
 ## 6. Credits & license
