@@ -173,7 +173,17 @@ function Invoke-Release {
     if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
     if (Test-Path $zip) { Remove-Item -Force $zip }
     Copy-PackageFiles $stage
-    Compress-Archive -Path $stage -DestinationPath $zip
+    # Not Compress-Archive: in Windows PowerShell 5.1 it stores entry names
+    # with '\', which breaks 7-Zip and unzip. The zip spec wants '/'.
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $root = (Resolve-Path $stage).Path
+    $out = [IO.Compression.ZipFile]::Open((Join-Path (Resolve-Path $RelDir).Path "$name.zip"), 'Create')
+    try {
+        foreach ($f in Get-ChildItem -Recurse -File $root | Sort-Object FullName) {
+            $entry = "$name/" + $f.FullName.Substring($root.Length + 1).Replace('\', '/')
+            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($out, $f.FullName, $entry, 'Optimal')
+        }
+    } finally { $out.Dispose() }
     $sha = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
     Set-Content -Encoding ascii "$zip.sha256" "$sha  $name.zip"
     Write-Host ">> Release: $zip" -ForegroundColor Green
