@@ -28,8 +28,15 @@ From the project root, in PowerShell:
 .\build-windows.ps1 hlp          # build\VPA.HLP and build\VPA_RUS.HLP from VHLP\*.HHH
 .\build-windows.ps1 package      # all of the above, assembled in build\vpa-windows_package\
 .\build-windows.ps1 graphtest    # graphics API test: plugin vs. direct ptcgraph, 10 frames
+.\build-windows.ps1 release      # build\release\vpa-windows-<version>-<arch>.zip and .sha256
 .\build-windows.ps1 clean        # remove build output
 ```
+
+`release` builds the same files as `package`, but into a fresh staging folder
+(`build\release\vpa-windows-<version>-<arch>\`) and zips it, so nothing kept in
+the package folder (games, `RESOURCE.PLN`) can end up in the zip. The version
+comes from `Version` in `VPA\VPADATA.PAS`; `<arch>` is `x86` or `x64`, after the
+compiler. It warns if the working tree has uncommitted changes.
 
 If script execution is disabled:
 

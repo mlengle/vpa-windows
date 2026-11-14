@@ -6,6 +6,7 @@
     .\build-windows.ps1 hlp        # VPA.HLP and VPA_RUS.HLP
     .\build-windows.ps1 package    # everything, assembled in build\vpa-windows_package\
     .\build-windows.ps1 graphtest  # graph API test: plugin vs direct ptcgraph, pixel-identical
+    .\build-windows.ps1 release    # build\release\vpa-windows-<version>-<arch>.zip (+ .sha256)
     .\build-windows.ps1 clean      # remove build artifacts (keeps build\sdl3-win\ and build\vpa-windows_package\)
 
   Needs Free Pascal 3.2.2 (fpc on the PATH). The executable has the same
@@ -15,7 +16,7 @@
   If PowerShell refuses to run scripts:
     powershell -ExecutionPolicy Bypass -File .\build-windows.ps1
 #>
-param([ValidateSet('build', 'hlp', 'package', 'graphtest', 'clean')][string]$Target = 'build')
+param([ValidateSet('build', 'hlp', 'package', 'graphtest', 'release', 'clean')][string]$Target = 'build')
 
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
@@ -35,6 +36,7 @@ $PlugObj   = "$PlugDir\sdl3"
 $Plugin    = "$PlugDir\vpagraph-sdl3.dll"
 $Sdl3Dir   = "$Build\sdl3-win"
 $PkgDir    = "$Build\vpa-windows_package"
+$RelDir    = "$Build\release"
 $PtcFlags  = @('-O2', '-dPTC_SDL3', '-FiVENDOR/ptc', '-FiVENDOR/ptc/core', '-FiVENDOR/ptc/sdl',
                '-FuVENDOR/ptc', '-FuVENDOR/sdl3', '-FiVENDOR/sdl3')
 $PkgFiles  = @('DISTTABL.DAT', 'LITT_VPA.CHR', 'VPA.MSG',
@@ -133,20 +135,49 @@ function Invoke-Hlp {
     Write-Host ">> Generated $Build\VPA.HLP and $Build\VPA_RUS.HLP" -ForegroundColor Green
 }
 
+# Copies the package's own files into $Dest (built output, help, data, docs).
+function Copy-PackageFiles {
+    param([string]$Dest)
+    New-Item -ItemType Directory -Force "$Dest\plugins", "$Dest\EXAMPLES" | Out-Null
+    Copy-Item -Force "$Build\VPA.exe", "$Build\VPA.HLP", "$Build\VPA_RUS.HLP" $Dest
+    Copy-Item -Force $Plugin, "$PlugDir\SDL3.dll" "$Dest\plugins"
+    $lic = Get-ChildItem -Recurse "$Sdl3Dir" -Filter LICENSE.txt | Select-Object -First 1
+    if (-not $lic) { throw "LICENSE.txt of SDL3 not found under $Sdl3Dir" }
+    Copy-Item -Force $lic.FullName "$Dest\LICENSE.SDL3.txt"
+    Copy-Item -Force EXAMPLES\* "$Dest\EXAMPLES"
+    Copy-Item -Force $PkgFiles $Dest
+}
+
 function Invoke-Package {
     Invoke-Build
     Invoke-Hlp
     # The package folder is NOT wiped: people copy game folders and
     # RESOURCE.PLN into it to play from there. Only the package's own files
     # are (over)written.
-    New-Item -ItemType Directory -Force "$PkgDir\plugins", "$PkgDir\EXAMPLES" | Out-Null
-    Copy-Item -Force "$Build\VPA.exe", "$Build\VPA.HLP", "$Build\VPA_RUS.HLP" $PkgDir
-    Copy-Item -Force $Plugin, "$PlugDir\SDL3.dll" "$PkgDir\plugins"
-    $lic = Get-ChildItem -Recurse "$Sdl3Dir" -Filter LICENSE.txt | Select-Object -First 1
-    if ($lic) { Copy-Item -Force $lic.FullName "$PkgDir\LICENSE.SDL3.txt" }
-    Copy-Item -Force EXAMPLES\* "$PkgDir\EXAMPLES"
-    Copy-Item -Force $PkgFiles $PkgDir
+    Copy-PackageFiles $PkgDir
     Write-Host ">> Package ready in $PkgDir\ - copy its contents to your game folder." -ForegroundColor Green
+}
+
+# A clean, distributable zip: built from scratch into its own staging folder,
+# so nothing a player left in build\vpa-windows_package\ can end up in it.
+function Invoke-Release {
+    $dirty = git status --porcelain 2>$null
+    if ($dirty) { Write-Warning "The working tree has uncommitted changes; the zip will include them." }
+    $ver = (Select-String -Path VPA\VPADATA.PAS -Pattern "Version\s*=\s*'([^']+)'").Matches[0].Groups[1].Value
+    Invoke-Build
+    Invoke-Hlp
+    $arch = if ((Get-FpcTarget) -like 'x86_64-*') { 'x64' } else { 'x86' }
+    $name = "vpa-windows-$ver-$arch"
+    $stage = "$RelDir\$name"
+    $zip = "$RelDir\$name.zip"
+    if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+    if (Test-Path $zip) { Remove-Item -Force $zip }
+    Copy-PackageFiles $stage
+    Compress-Archive -Path $stage -DestinationPath $zip
+    $sha = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+    Set-Content -Encoding ascii "$zip.sha256" "$sha  $name.zip"
+    Write-Host ">> Release: $zip" -ForegroundColor Green
+    Write-Host "   SHA256 $sha"
 }
 
 function Invoke-GraphTest {
@@ -196,5 +227,6 @@ switch ($Target) {
     'hlp'       { Invoke-Hlp }
     'package'   { Invoke-Package }
     'graphtest' { Invoke-GraphTest }
+    'release'   { Invoke-Release }
     'clean'     { Invoke-Clean }
 }

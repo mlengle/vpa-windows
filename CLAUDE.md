@@ -18,7 +18,11 @@ User docs: `README.md`, `HOWTO.md` (playing), `BUILD.md` (building, port design)
 .\build-windows.ps1 hlp          # build\VPA.HLP, VPA_RUS.HLP (VHLP\vhlpmake from VHLP\*.HHH)
 .\build-windows.ps1 package      # everything into build\vpa-windows_package\
 .\build-windows.ps1 graphtest    # the only automated test on Windows (see below)
+.\build-windows.ps1 release      # clean zip for a GitHub release: build\release\vpa-windows-<ver>-<arch>.zip
 ```
+
+Releases are tagged `v<version>-win<N>` (e.g. `v3.67.7-win1`); plain
+`v3.67.x` tags belong to upstream VPA-Linux.
 
 - The scoop FPC is i386-win32 only, so builds are 32-bit. If `fpc` cannot find
   its units, `fpc.cfg` is missing; the script prints the `fpcmkcfg` fix.
