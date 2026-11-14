@@ -37,8 +37,8 @@ $Sdl3Dir   = "$Build\sdl3-win"
 $PkgDir    = "$Build\vpa-windows_package"
 $PtcFlags  = @('-O2', '-dPTC_SDL3', '-FiVENDOR/ptc', '-FiVENDOR/ptc/core', '-FiVENDOR/ptc/sdl',
                '-FuVENDOR/ptc', '-FuVENDOR/sdl3', '-FiVENDOR/sdl3')
-$PkgFiles  = @('DISTTABL.DAT', 'LITT_VPA.CHR', 'VPA.MSG', 'HOWTO.en.md', 'HOWTO.es.md',
-               'LICENSE.md', 'MPL-2.0.txt', 'WINDOWS.md')
+$PkgFiles  = @('DISTTABL.DAT', 'LITT_VPA.CHR', 'VPA.MSG',
+               'README.md', 'HOWTO.md', 'LICENSE.md', 'MPL-2.0.txt')
 
 function Invoke-Fpc {
     # Plain $args, not a param block: fpc options such as -O2 must not be

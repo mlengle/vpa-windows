@@ -1,6 +1,7 @@
 # License
 
-**VPA-Linux** is a native GNU/Linux port of **VGA Planets Assistant (VPA) 3.67**.
+**VPA for Windows** is a native Windows port of **VGA Planets Assistant (VPA) 3.67**,
+derived from **VPA-Linux**, the native GNU/Linux port by Pablo Romano Gómez.
 It is a *derivative work that combines several components released under different
 (but compatible) open-source licenses*. This file explains which license applies to
 which part, and lists every copyright holder whose work is included. **All original
@@ -15,11 +16,12 @@ copyright notices are retained.**
 >   the SDL3 console this port adds to PTCPas, stay under the **GNU LGPL with the
 >   static-linking exception**.
 > - The vendored **SDL3-for-Pascal** bindings are under the **zlib license**.
-> - The binary packages also carry an unmodified build of the **SDL 3** library
->   (`plugins/libSDL3.so.0`), under the **zlib license** — see `LICENSE.SDL3.txt`
+> - The Windows package also carries the official, unmodified **SDL 3** library
+>   (`plugins\SDL3.dll`), under the **zlib license** — see `LICENSE.SDL3.txt`
 >   in the package. SDL is **not** part of this source tree.
-> - The files **written specifically for this Linux port** are **BSD 3-Clause**,
->   © 2026 Pablo Romano Gómez.
+> - The files **written specifically for the Linux port** are **BSD 3-Clause**,
+>   © 2026 Pablo Romano Gómez; the files **added for the Windows port** are
+>   under the same BSD 3-Clause terms, © 2026 the VPA for Windows contributors.
 
 ---
 
@@ -33,8 +35,9 @@ copyright notices are retained.**
 | **Vendored Free Pascal** run-time files | `VENDOR/` except `VENDOR/sdl3/` (`ptcgraph.pp`, `ptccrt.pp`, the `.inc` files they include, `ptc/…`) | **GNU LGPL with the static-linking exception** (the modified LGPL under which FPC ships) | © 2010–2011 Nikolay Nikolov; © 2007 Daniel Mantione; and the Free Pascal development team |
 | **SDL3 console for PTCPas**, written for this port | `VENDOR/ptc/sdl/` (`sdlconsoled.inc`, `sdlconsolei.inc`) | **GNU LGPL with the static-linking exception**, the same terms as the PTCPas library it is compiled into | © 2026 Pablo Romano Gómez |
 | **SDL3-for-Pascal** bindings, v0.6 (one file modified, and marked) | `VENDOR/sdl3/` | **zlib license** (`VENDOR/sdl3/LICENSE.md`) | © 2024 Pascal Game Development Team |
-| **SDL 3.4.16** shared library — **binary packages only**, not in this repository | `plugins/libSDL3.so.0` in the package assembled by `make data`, built from the unmodified official tarball | **zlib license** (`LICENSE.SDL3.txt` in the package) | © 1997–2026 Sam Lantinga and the SDL contributors |
-| **New port code**, build tooling and documentation | `GRAPH/` (the VPAGraph core, ABI and plugin loader), `BACKENDS/` (the X11 and Wayland plugins), `TESTS/`, `tools/`, `docs/`, `WAYLAND.md`, `UNIT/xfocus.pas`, `Makefile`, `vpa.cfg`, `plugins.cfg`, `preport.py`, `preport-all.sh`, `swapgraph.py`, `setup-env.sh`, `README.md`, `README.es.md`, `README.en.md`, `BUILD.es.md`, `BUILD.en.md`, `HOWTO.es.md`, `HOWTO.en.md`, this `LICENSE.md`, … | **BSD 3-Clause** | © 2026 Pablo Romano Gómez |
+| **SDL 3.4.16** shared library — **binary package only**, not in this repository | `plugins\SDL3.dll` in the package assembled by `build-windows.ps1 package`: the official, unmodified Windows build from libsdl-org's GitHub release, checked against a pinned SHA-256 | **zlib license** (`LICENSE.SDL3.txt` in the package) | © 1997–2026 Sam Lantinga and the SDL contributors |
+| **New port code**, build tooling and documentation of the Linux port | `GRAPH/` (the VPAGraph core, ABI and plugin loader), `BACKENDS/` (the X11 and Wayland plugins), `TESTS/`, `tools/`, `Makefile`, `vpa.cfg`, `plugins.cfg`, `preport.py`, `preport-all.sh`, `swapgraph.py`, `setup-env.sh`, `README.md`, `HOWTO.md`, this `LICENSE.md`, … | **BSD 3-Clause** | © 2026 Pablo Romano Gómez |
+| **Windows port**: new files, and the Windows changes to the files above | `build-windows.ps1`, `BUILD.md`, `EXAMPLES/game_launch.cmd`, the Windows parts of `GRAPH/` and `BACKENDS/`, and the Windows rewrite of `README.md` and `HOWTO.md` | **BSD 3-Clause** (changes to MPL, LGPL or PCC-licensed files stay under those files' licenses) | © 2026 the VPA for Windows contributors |
 | **Map label font** (BGI stroked font "LITT") | `LITT_VPA.CHR` | **© Borland International** — a Borland Graphics Interface (BGI) runtime font, not covered by the licenses above (see note below) | © 1987–1988 Borland International |
 
 ### Important notes
@@ -59,19 +62,17 @@ copyright notices are retained.**
   `ptc/x11/x11extensions.inc`, `ptc/x11/x11consolei.inc`,
   `ptc/x11/x11windowdisplayi.inc` and its `.d.inc`, and `sdl3/SDL3.pas`) keeps a
   notice stating what was changed, as the LGPL and the zlib license require.
-- **Where the LGPL code ends up.** The executable `VPA` no longer contains any of
-  the vendored Free Pascal graphics code: it is linked into the two plugins,
-  `plugins/libvpagraph-x11.so` and `plugins/libvpagraph-wayland.so`, under the
-  static-linking exception, and the complete source of that code, modifications
-  included, is in `VENDOR/`. The plugins talk to the executable only through the
+- **Where the LGPL code ends up.** The executable (`VPA.exe`) does not contain any
+  of the vendored Free Pascal graphics code: it is linked into the graphics plugin
+  (`plugins\vpagraph-sdl3.dll` on Windows; `libvpagraph-x11.so` and
+  `libvpagraph-wayland.so` in VPA-Linux), under the static-linking exception, and
+  the complete source of that code, modifications included, is in `VENDOR/`. The plugins talk to the executable only through the
   VPAGraph ABI (`GRAPH/vpagraph_abi.inc`), which is new port code.
-- **SDL 3 is used as a separate shared library.** The Wayland plugin loads
-  `libSDL3.so.0` dynamically: the copy shipped next to it in the binary packages,
-  or the system's if that copy is deleted. The shipped copy is built by `make sdl3`
-  from the official, unmodified SDL 3.4.16 source tarball (its SHA-256 is pinned in
-  the `Makefile`), with only the subsystems VPA uses enabled. The zlib license asks
-  for no attribution in binary form; its text is shipped anyway as
-  `LICENSE.SDL3.txt`. The SDL source tree also contains a few third-party parts
+- **SDL 3 is used as a separate shared library.** The plugin loads `SDL3.dll`
+  dynamically from its own folder. `build-windows.ps1` downloads the official,
+  unmodified SDL 3.4.16 Windows release and checks its SHA-256 (pinned in the
+  script) before packaging it. The zlib license asks for no attribution in binary
+  form; its text is shipped anyway as `LICENSE.SDL3.txt`. The SDL source tree also contains a few third-party parts
   under other permissive licenses (MIT, BSD, Apache-2.0); see the SDL tarball for
   their notices.
 - **Cyrillic glyphs in `VENDOR/fontdata.inc`.** Glyphs #128–#255 of the 8×8 bitmap
@@ -105,7 +106,8 @@ copyright notices are retained.**
 - **Borland International** — the BGI stroked font `LITT_VPA.CHR` (© 1987–1988).
 - **Andrew Sterian, Thomas Voigt, Steffen Pietsch, Maurits van Rees, Stefan Reuther**
   — the PHost Development Kit (PDK), consulted as reference only.
-- **Pablo Romano Gómez** — the GNU/Linux native port (© 2026).
+- **Pablo Romano Gómez** — the GNU/Linux native port, VPA-Linux (© 2026).
+- **The VPA for Windows contributors** — the Windows port (© 2026).
 
 ---
 
@@ -176,7 +178,7 @@ published on SourceForge under the Mozilla Public License:
 The native PHost combat viewer is derived from **PCC2ng** by **Stefan Reuther**
 (the PCC2 project), used under the PCC II License Terms.
 
-The native Wayland backend draws with **SDL 3** (<https://www.libsdl.org/>) through
+The graphics plugin draws with **SDL 3** (<https://www.libsdl.org/>) through
 the **SDL3-for-Pascal** bindings (<https://github.com/PascalGameDevelopment/SDL3-for-Pascal>),
 both under the zlib license.
 

@@ -1,6 +1,8 @@
 # ============================================================================
 # Makefile — Port of VGA Planets Assistant (VPA) 3.67 to GNU/Linux (Free Pascal)
-# Replaces Borland Make's MAKEFILE. See BUILD.en.md for requirements and usage.
+# Replaces Borland Make's MAKEFILE. Inherited from VPA-Linux and not maintained
+# in VPA for Windows (whose build is build-windows.ps1, see BUILD.md); the Linux
+# build guide lives in https://github.com/promano7/vpa-linux (BUILD.en.md).
 # ============================================================================
 
 FPC  ?= fpc
@@ -19,7 +21,7 @@ PTCUNITS = build/ptcunits
 # Distributable package assembled by 'make data': the compiled binary, the
 # compiled help file, the EXAMPLES/ folder and the runtime data + documents.
 PKGDIR    = build/vpa-linux_package
-PKGFILES  = DISTTABL.DAT HOWTO.en.md HOWTO.es.md LICENSE.md LITT_VPA.CHR \
+PKGFILES  = DISTTABL.DAT LICENSE.md LITT_VPA.CHR \
             MPL-2.0.txt VPA.MSG
 
 # VPAGraph ABI test bench (WAYLAND.md, Phases 2 and 3): the five test plugins of
@@ -567,7 +569,7 @@ $(SDL3SO): $(SDL3TAR)
 ##        folder (libvpagraph-x11.so, libvpagraph-wayland.so and the
 ##        libSDL3.so.0 of 'make sdl3', which the Wayland plugin finds through
 ##        its $$ORIGIN runpath before the system's), VPA.HLP and VPA_RUS.HLP,
-##        the EXAMPLES/ folder, and DISTTABL.DAT, HOWTO.en.md, HOWTO.es.md,
+##        the EXAMPLES/ folder, and DISTTABL.DAT,
 ##        LICENSE.md, LICENSE.SDL3.txt, LITT_VPA.CHR, MPL-2.0.txt and VPA.MSG.
 ##        The same on every architecture (x86-64, aarch64).
 data: build hlp sdl3
