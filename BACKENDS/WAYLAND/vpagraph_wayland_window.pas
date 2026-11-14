@@ -129,7 +129,8 @@ begin
     if not PTCSDLScreenSize(W, H) then
     begin
       SetError(VPAG_ERR_UNSUPPORTED,
-        'GetScreenSize: no Wayland compositor, or it announced no output');
+        {$IFDEF WINDOWS}'GetScreenSize: SDL3 could not query the primary display'
+        {$ELSE}'GetScreenSize: no Wayland compositor, or it announced no output'{$ENDIF});
       Exit(VPAG_ERR_UNSUPPORTED);
     end;
     Width^ := W;

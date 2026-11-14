@@ -11,13 +11,17 @@
   (docs/threads-and-rtl.md).
 
   Se construye con:  make wayland-plugin
+
+  VPA-Windows: el mismo fichero es el plugin SDL3 de Windows
+  (build/plugins/vpagraph-sdl3.dll), sobre la misma consola SDL3 con el
+  controlador de video 'windows'. Lo construye build-windows.ps1.
 }
 library vpagraph_wayland;
 
 {$MODE OBJFPC}{$H+}
 
 uses
-  cthreads,
+  {$IFDEF UNIX}cthreads,{$ENDIF}   { Windows: hilos nativos, sin gestor aparte }
   vpagraph_x11_impl;
 
 exports

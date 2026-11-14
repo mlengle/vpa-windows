@@ -38,3 +38,9 @@
 # (un CRLF deja un CR colgante que RTrim no elimina y corrompe el parseo)
 *.msg  text eol=lf
 *.MSG  text eol=lf
+
+# VPA-Windows: los ficheros que lee cmd.exe / PowerShell van en CRLF.
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+VPA/GREETS.BAT -text

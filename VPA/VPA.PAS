@@ -59,7 +59,7 @@ procedure Terminate; far;
   end;
 
 Begin
-{$IFDEF UNIX}
+{$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}
   { --graph-info (T4.4 de WAYLAND.md): informe del backend grafico, sin abrir
     ventana. Va aqui, antes de instalar Terminate, por dos motivos: Terminate
     pone ExitCode a 0 en cualquier Halt (y --graph-info tiene que salir con 1

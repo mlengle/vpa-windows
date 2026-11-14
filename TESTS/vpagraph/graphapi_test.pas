@@ -21,7 +21,7 @@
 program graphapi_test;
 
 uses
-  {$IFDEF DIRECT}cthreads, ptcgraph{$ELSE}vpagraph{$ENDIF};
+  {$IFDEF DIRECT}{$IFDEF UNIX}cthreads, {$ENDIF}ptcgraph{$ELSE}vpagraph{$ENDIF};
 
 var
   Failures : integer;

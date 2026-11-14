@@ -101,7 +101,7 @@ procedure VPAInputReset;
 implementation
 
 uses
-  BaseUnix, vpagraph;
+  {$IFDEF WINDOWS}Windows{$ELSE}BaseUnix{$ENDIF}, vpagraph;
 
 { ---------------------------------------------------------------------------
   Bufer de teclas
@@ -358,15 +358,21 @@ begin
 end;
 
 function VPAReadKey: Char;
+{$IFNDEF WINDOWS}
 var
   Req: TTimeSpec;
+{$ENDIF}
 begin
   while not VPAKeyPressed do
   begin
     if not VPAInputReady then Exit(#0);
+    {$IFDEF WINDOWS}
+    Windows.Sleep(1);
+    {$ELSE}
     Req.tv_sec := 0;
     Req.tv_nsec := 1000000;
     fpNanoSleep(@Req, nil);
+    {$ENDIF}
   end;
   Result := KeyBufGet;
 end;

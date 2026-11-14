@@ -6,6 +6,7 @@
   /usr/lib/vpa-linux, en una Raspberry /usr/lib/vpa-linux... El Makefile
   lo sobreescribira con PLUGIN_INSTALL_DIR cuando llegue la Fase 12.
 
-  Ruta ABSOLUTA, sin barra final. }
+  Ruta ABSOLUTA, sin barra final. Vacia = sin candidato de instalacion
+  (Windows: el paquete es portable, los plugins van junto al ejecutable). }
 const
-  VPAGRAPH_INSTALL_DIR = '/usr/lib/vpa-linux';
+  VPAGRAPH_INSTALL_DIR = {$IFDEF WINDOWS}''{$ELSE}'/usr/lib/vpa-linux'{$ENDIF};

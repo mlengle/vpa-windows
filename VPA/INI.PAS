@@ -194,22 +194,40 @@ end; { ini_setintrange }
   editor del usuario ($VISUAL, luego $EDITOR) y, si no hay ninguno, nano y por
   ultimo vi. Ojo: dos.Exec no busca en el PATH (llama a execv directamente), asi
   que la ruta se resuelve aqui con FSearch y se le pasa absoluta; un $EDITOR con
-  argumentos ('nano -w') no se puede ejecutar asi y se descarta. }
+  argumentos ('nano -w') no se puede ejecutar asi y se descarta.
+  VPA-Windows: el mismo orden ($VISUAL, $EDITOR) y, si no hay ninguno, el Bloc
+  de notas, que existe en toda instalacion de Windows. Un nombre sin extension
+  se busca tambien con .exe; una ruta con \ o / se toma tal cual. }
 function VPAEditorPath : string;
 
   function Which(name:string):string;
   begin
     if (name='') or (Pos(' ',name)>0) then Which:=''
+{$IFDEF WINDOWS}
+    else if (Pos('/',name)>0) or (Pos('\',name)>0) then Which:=name
+    else begin
+      Which:=FSearch(name,GetEnv('PATH'));
+      if (Pos('.',name)=0) and (FSearch(name,GetEnv('PATH'))='') then
+        Which:=FSearch(name+'.exe',GetEnv('PATH'));
+    end;
+{$ELSE}
     else if (Pos('/',name)>0) then Which:=name
     else Which:=FSearch(name,GetEnv('PATH'));
+{$ENDIF}
   end;
 
 var e : string;
 begin
   e:=Which(GetEnv('VISUAL'));
   if (e='') then e:=Which(GetEnv('EDITOR'));
+{$IFDEF WINDOWS}
+  if (e='') then e:=Which('notepad.exe');
+  if (e='') and (GetEnv('SystemRoot')<>'') then
+    e:=GetEnv('SystemRoot')+'\notepad.exe';
+{$ELSE}
   if (e='') then e:=Which('nano');
   if (e='') then e:=Which('vi');
+{$ENDIF}
   VPAEditorPath:=e;
 end;
 
@@ -244,7 +262,7 @@ begin
     exit;
   end;
   for i:=Length(e) downto 1 do
-    if (e[i]='/') then begin
+    if (e[i]='/') or (e[i]='\') then begin
       e:=Copy(e,i+1,Length(e)-i);
       break;
     end;
@@ -375,7 +393,11 @@ begin
 				editor:=VPAEditorPath;
 				RestoreCrtMode;
 				if (editor='') then begin
+{$IFDEF WINDOWS}
+					Writeln('No text editor found. Set %EDITOR% to the full path of one.');
+{$ELSE}
 					Writeln('No text editor found. Install nano or set $EDITOR.');
+{$ENDIF}
 					WaitEnter;
 				end else begin
 					Exec(editor,GetIniFile(ini_file));

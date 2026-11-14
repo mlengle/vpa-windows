@@ -163,8 +163,65 @@ procedure VPAGraph_Log(const S: AnsiString);
 
 implementation
 
+{$IFDEF WINDOWS}
+{ VPA-Windows: la misma secuencia con la API de Win32. LoadLibraryEx con
+  LOAD_WITH_ALTERED_SEARCH_PATH busca las dependencias del plugin (SDL3.dll)
+  PRIMERO en el directorio del propio plugin, que es el equivalente del
+  RUNPATH=$ORIGIN del plugin Wayland. Windows resuelve todas las
+  importaciones al cargar, como RTLD_NOW: un SDL3.dll al que le falte un
+  simbolo hace fallar LoadLibrary aqui, no en mitad de la partida. }
+uses
+  Windows;
+{$ELSE}
 uses
   BaseUnix, dl;
+{$ENDIF}
+
+{ Str() en vez de SysUtils.IntToStr: esta unidad no necesita SysUtils y no
+  hay motivo para arrastrarlo (con su gestor de excepciones) al ejecutable. }
+function IntToStr(V: int64): AnsiString;
+var
+  S: string[24];
+begin
+  Str(V, S);
+  Result := S;
+end;
+
+{$IFDEF WINDOWS}
+
+const
+  PathSep = '\';
+
+{ GetEnvironmentVariable lee el entorno VIVO del proceso, como getenv de libc
+  en Linux (no la copia que el RTL tomo al arrancar). }
+function GetEnv(const Name: AnsiString): AnsiString;
+var
+  Buf: array[0..4095] of AnsiChar;
+  N: DWORD;
+begin
+  N := GetEnvironmentVariableA(PAnsiChar(Name), @Buf[0], SizeOf(Buf));
+  if (N = 0) or (N >= SizeOf(Buf)) then
+    Result := ''
+  else
+    SetString(Result, PAnsiChar(@Buf[0]), N);
+end;
+
+{ Texto del ultimo error de Win32 (el equivalente de dlerror). }
+function LastErrorText(Code: DWORD): AnsiString;
+var
+  Buf: array[0..511] of AnsiChar;
+  N: DWORD;
+begin
+  N := FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_IGNORE_INSERTS,
+    nil, Code, 0, @Buf[0], SizeOf(Buf), nil);
+  while (N > 0) and (Buf[N - 1] in [#10, #13, ' ', '.']) do Dec(N);
+  SetString(Result, PAnsiChar(@Buf[0]), N);
+  Result := Result + ' [error ' + IntToStr(Code) + ']';
+end;
+{$ELSE}
+
+const
+  PathSep = '/';
 
 { getenv de libc, no Dos.GetEnv ni BaseUnix.fpGetEnv: los dos leen la copia
   del entorno que el RTL tomo al arrancar, y un setenv posterior (el arnes
@@ -179,6 +236,7 @@ begin
   P := c_getenv(PAnsiChar(Name));
   if P = nil then Result := '' else Result := AnsiString(P);
 end;
+{$ENDIF}
 
 { ---------------------------------------------------------------------------
   Diagnostico (T3.7)
@@ -195,16 +253,6 @@ begin
   if IOResult <> 0 then ;
 end;
 
-{ Str() en vez de SysUtils.IntToStr: esta unidad no necesita SysUtils y no
-  hay motivo para arrastrarlo (con su gestor de excepciones) al ejecutable. }
-function IntToStr(V: int64): AnsiString;
-var
-  S: string[24];
-begin
-  Str(V, S);
-  Result := S;
-end;
-
 procedure AppendLine(var Detail: AnsiString; const S: AnsiString);
 begin
   if Detail <> '' then Detail := Detail + LineEnding;
@@ -217,7 +265,20 @@ end;
 
 function VPAGraph_PluginFileName(const Backend: AnsiString): AnsiString;
 begin
+  {$IFDEF WINDOWS}
+  Result := 'vpagraph-' + Backend + '.dll';
+  {$ELSE}
   Result := 'libvpagraph-' + Backend + '.so';
+  {$ENDIF}
+end;
+
+function IsSep(C: AnsiChar): Boolean;
+begin
+  {$IFDEF WINDOWS}
+  Result := (C = '\') or (C = '/');
+  {$ELSE}
+  Result := C = '/';
+  {$ENDIF}
 end;
 
 function VPAGraph_ExeDir: AnsiString;
@@ -226,15 +287,21 @@ var
   N, I : longint;
 begin
   Result := '';
-  { /proc/self/exe es la unica fuente fiable: ParamStr(0) puede ser un
-    nombre relativo o lo que el shell quiso poner ahi. }
+  { /proc/self/exe (Linux) o GetModuleFileName (Windows) son las unicas
+    fuentes fiables: ParamStr(0) puede ser un nombre relativo o lo que el
+    shell quiso poner ahi. }
+  {$IFDEF WINDOWS}
+  N := GetModuleFileNameA(0, @Buf[0], SizeOf(Buf) - 1);
+  if (N <= 0) or (N >= SizeOf(Buf) - 1) then Exit;
+  {$ELSE}
   N := fpReadLink('/proc/self/exe', @Buf[0], SizeOf(Buf) - 1);
   if N <= 0 then Exit;
+  {$ENDIF}
   Buf[N] := #0;
   SetString(Result, PAnsiChar(@Buf[0]), N);
   { Quitar el nombre del fichero: hasta la ultima barra, sin incluirla. }
   I := Length(Result);
-  while (I > 1) and (Result[I] <> '/') do Dec(I);
+  while (I > 1) and not IsSep(Result[I]) do Dec(I);
   if I <= 1 then
     Result := ''
   else
@@ -243,15 +310,22 @@ end;
 
 function IsAbsolute(const P: AnsiString): Boolean;
 begin
+  {$IFDEF WINDOWS}
+  { C:\... o C:/... , y rutas UNC (\\servidor\...) }
+  Result := ((Length(P) >= 3) and (P[1] in ['A'..'Z', 'a'..'z']) and
+             (P[2] = ':') and IsSep(P[3])) or
+            ((Length(P) >= 2) and IsSep(P[1]) and IsSep(P[2]));
+  {$ELSE}
   Result := (Length(P) > 0) and (P[1] = '/');
+  {$ENDIF}
 end;
 
 function JoinPath(const Dir, Name: AnsiString): AnsiString;
 begin
-  if (Dir <> '') and (Dir[Length(Dir)] = '/') then
+  if (Dir <> '') and IsSep(Dir[Length(Dir)]) then
     Result := Dir + Name
   else
-    Result := Dir + '/' + Name;
+    Result := Dir + PathSep + Name;
 end;
 
 procedure VPAGraph_ResolvePluginPath(const Backend: AnsiString;
@@ -292,16 +366,45 @@ begin
   if ExeDir <> '' then
     Add(JoinPath(ExeDir, VPAGL_EXE_SUBDIR))
   else
-    VPAGraph_Log('cannot read /proc/self/exe: skipping the candidate next to the executable');
+    VPAGraph_Log('cannot find the executable''s own path: skipping the candidate next to the executable');
 
-  { 3. Directorio de instalacion }
-  Add(VPAGRAPH_INSTALL_DIR);
+  { 3. Directorio de instalacion (no hay en Windows: el paquete es portable) }
+  if VPAGRAPH_INSTALL_DIR <> '' then
+    Add(VPAGRAPH_INSTALL_DIR);
 end;
 
 { ---------------------------------------------------------------------------
   Validaciones previas (T3.3)
   --------------------------------------------------------------------------- }
 
+{$IFDEF WINDOWS}
+function CheckFile(const Path: AnsiString; var Detail: AnsiString): longint;
+var
+  Attr: DWORD;
+  H: THandle;
+begin
+  Attr := GetFileAttributesA(PAnsiChar(Path));
+  if Attr = DWORD($FFFFFFFF) then   { INVALID_FILE_ATTRIBUTES }
+  begin
+    Detail := Path + ': does not exist';
+    Exit(VPAGL_ERR_NOT_FOUND);
+  end;
+  if (Attr and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+  begin
+    Detail := Path + ': not a regular file';
+    Exit(VPAGL_ERR_NOT_REGULAR);
+  end;
+  H := CreateFileA(PAnsiChar(Path), GENERIC_READ, FILE_SHARE_READ, nil,
+    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+  if H = INVALID_HANDLE_VALUE then
+  begin
+    Detail := Path + ': permission denied (not readable)';
+    Exit(VPAGL_ERR_NOT_READABLE);
+  end;
+  CloseHandle(H);
+  Result := VPAGL_OK;
+end;
+{$ELSE}
 function CheckFile(const Path: AnsiString; var Detail: AnsiString): longint;
 var
   St: Stat;
@@ -324,6 +427,62 @@ begin
     Exit(VPAGL_ERR_NOT_READABLE);
   end;
   Result := VPAGL_OK;
+end;
+{$ENDIF}
+
+{ --- Carga dinamica: dlopen/dlsym/dlclose o su equivalente de Win32 --- }
+
+function LibOpen(const Path: AnsiString; var Msg: AnsiString): Pointer;
+{$IFDEF WINDOWS}
+const
+  LOAD_WITH_ALTERED_SEARCH_PATH = $00000008;
+var
+  OldMode: UINT;
+begin
+  Msg := '';
+  { Sin cuadros de dialogo del sistema si falta una DLL: el error se cuenta
+    en el texto, como en Linux. }
+  OldMode := SetErrorMode(SEM_FAILCRITICALERRORS or SEM_NOOPENFILEERRORBOX);
+  Result := Pointer(LoadLibraryExA(PAnsiChar(Path), 0,
+    LOAD_WITH_ALTERED_SEARCH_PATH));
+  if Result = nil then
+    Msg := LastErrorText(GetLastError);
+  SetErrorMode(OldMode);
+end;
+{$ELSE}
+var
+  P: PAnsiChar;
+begin
+  Msg := '';
+  dlerror;   { limpia el ultimo error, dlerror es de un solo uso }
+  { RTLD_NOW: todos los simbolos resueltos ahora o ninguno (ver cabecera).
+    RTLD_LOCAL (el valor por defecto, no se pide): los simbolos del plugin
+    no se mezclan con los del ejecutable ni con los de otro plugin. }
+  Result := dlopen(PAnsiChar(Path), RTLD_NOW);
+  if Result = nil then
+  begin
+    P := dlerror;
+    if P <> nil then Msg := AnsiString(P);
+  end;
+end;
+{$ENDIF}
+
+function LibSym(H: Pointer; const Name: AnsiString): Pointer;
+begin
+  {$IFDEF WINDOWS}
+  Result := GetProcAddress(HMODULE(H), PAnsiChar(Name));
+  {$ELSE}
+  Result := dlsym(H, PAnsiChar(Name));
+  {$ENDIF}
+end;
+
+procedure LibClose(H: Pointer);
+begin
+  {$IFDEF WINDOWS}
+  FreeLibrary(HMODULE(H));
+  {$ELSE}
+  dlclose(H);
+  {$ENDIF}
 end;
 
 { ---------------------------------------------------------------------------
@@ -452,7 +611,7 @@ var
   H     : Pointer;
   Entry : TVPAGraphGetInterfaceProc;
   Rc    : TVPAGraphInt32;
-  Msg   : PAnsiChar;
+  Msg   : AnsiString;
 begin
   Detail := '';
   if Plugin.Loaded then
@@ -482,26 +641,21 @@ begin
     Exit;
   end;
 
-  { RTLD_NOW: todos los simbolos resueltos ahora o ninguno (ver cabecera).
-    RTLD_LOCAL (el valor por defecto, no se pide): los simbolos del plugin
-    no se mezclan con los del ejecutable ni con los de otro plugin. }
-  dlerror;   { limpia el ultimo error, dlerror es de un solo uso }
-  H := dlopen(PAnsiChar(Path), RTLD_NOW);
+  H := LibOpen(Path, Msg);
   if H = nil then
   begin
-    Msg := dlerror;
     Detail := Path + ': cannot be loaded';
-    if Msg <> nil then Detail := Detail + ' (' + AnsiString(Msg) + ')';
+    if Msg <> '' then Detail := Detail + ' (' + Msg + ')';
     VPAGraph_Log('  rejected: ' + Detail);
     Exit(VPAGL_ERR_LOAD_FAILED);
   end;
 
-  Entry := TVPAGraphGetInterfaceProc(dlsym(H, VPAGRAPH_ENTRY_POINT));
+  Entry := TVPAGraphGetInterfaceProc(LibSym(H, VPAGRAPH_ENTRY_POINT));
   if Entry = nil then
   begin
     Detail := Path + ': does not export ' + VPAGRAPH_ENTRY_POINT +
       ' (not a VPAGraph plugin)';
-    dlclose(H);
+    LibClose(H);
     VPAGraph_Log('  rejected: ' + Detail);
     Exit(VPAGL_ERR_NO_SYMBOL);
   end;
@@ -519,7 +673,7 @@ begin
         IntToStr(SizeOf(TVPAGraphInterface)) + ' bytes)';
     end;
     FillChar(Plugin.Iface, SizeOf(Plugin.Iface), 0);
-    dlclose(H);
+    LibClose(H);
     VPAGraph_Log('  rejected: ' + Detail);
     Exit(VPAGL_ERR_ENTRY_FAILED);
   end;
@@ -529,7 +683,7 @@ begin
   begin
     Detail := Path + ': ' + Detail;
     FillChar(Plugin.Iface, SizeOf(Plugin.Iface), 0);
-    dlclose(H);
+    LibClose(H);
     VPAGraph_Log('  rejected: ' + Detail);
     Exit;
   end;
@@ -584,7 +738,7 @@ begin
   FillChar(Plugin.Iface, SizeOf(Plugin.Iface), 0);
   Plugin.Path := '';
   if H <> nil then
-    dlclose(H);
+    LibClose(H);
 end;
 
 { ---------------------------------------------------------------------------

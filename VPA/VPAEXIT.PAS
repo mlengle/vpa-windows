@@ -671,7 +671,7 @@ procedure SaveChanges;
     ch:=2;
   end;
 
-{$IFDEF UNIX}
+{$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}
 { Confirmacion grafica "salir sin guardar" (Ctrl-Alt-X). Debe ejecutarse ANTES de
   CloseGraphics: al cerrar la ventana ptc el teclado deja de generar eventos, asi
   que el prompt de texto del original colgaria. Devuelve True si el usuario confirma
@@ -696,7 +696,7 @@ procedure QuitVPA;
     save := not KbdQuitNoSave;   { Ctrl-Alt-X => no guardar; Alt-X / [X] => guardar }
     if not Batch then
     begin
-{$IFDEF UNIX}
+{$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}
       { Preguntar (graficamente) antes de cerrar el grafico. }
       if (not save) and MaySave and (NewTurn or DataChg) then
         save := not ConfirmQuitNoSave;

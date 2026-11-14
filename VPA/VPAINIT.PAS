@@ -152,12 +152,23 @@ procedure Parameters;
     Writeln('         /BGI:drv,dir,mode  to  load and use another BGI driver');
     Writeln('Read the complete description in VPA.FAQ');
     Writeln;
+{$IFDEF WINDOWS}
+    Writeln('Environment variables (set them before the command, e.g. set VPA_SCALE=3):');
+{$ELSE}
     Writeln('Environment variables (VPA-Linux only, set them before the command):');
+{$ENDIF}
     Writeln('  VPA_SCALE=N             window size: 1 = native 640x480, 2..20 = N times');
     Writeln('                          (default: 2), 21..800 = percentage (220 = 2.2x).');
     Writeln('                          Always clipped to what fits on the screen.');
     Writeln('  VPA_SCALE=fullscreen    fullscreen: the largest 4:3 fit, above the desktop');
     Writeln('                          panel. Aliases: full, max.');
+{$IFDEF WINDOWS}
+    Writeln('  VPA_GRAPH_BACKEND=x     graphics backend: auto (default) or sdl3. On Windows');
+    Writeln('                          both mean the SDL3 plugin (plugins\vpagraph-sdl3.dll).');
+    Writeln('  VPA_GRAPH_PLUGIN_DIR=d  absolute directory searched first for the backend');
+    Writeln('                          plugin (vpagraph-sdl3.dll and its SDL3.dll), before');
+    Writeln('                          <VPA directory>\plugins\.');
+{$ELSE}
     Writeln('  VPA_GRAPH_BACKEND=x     graphics backend: auto (default), x11 or wayland.');
     Writeln('                          auto detects the session (WAYLAND_DISPLAY, DISPLAY,');
     Writeln('                          XDG_SESSION_TYPE) and falls back to the other backend');
@@ -166,6 +177,7 @@ procedure Parameters;
     Writeln('  VPA_GRAPH_PLUGIN_DIR=d  absolute directory searched first for the backend');
     Writeln('                          plugins (libvpagraph-x11.so, libvpagraph-wayland.so),');
     Writeln('                          before <VPA directory>/plugins/ and the install dir.');
+{$ENDIF}
     Writeln('  VPA_GRAPH_DEBUG=1       trace backend detection and plugin search on stderr.');
     Writeln('  VPA_GRAPH_DUMP=prefix   testing aid: Ctrl-F12 dumps the 640x480 framebuffer');
     Writeln('                          to <prefix>NNNN.ppm, palette to <prefix>NNNN.pal.');
@@ -1353,7 +1365,10 @@ procedure OpenGraph;
     end;
   begin
     LoadAlternateFont;
-    OpenFile(f,ResName,0,Yes);
+    { RESOURCE.PLN: primero en el directorio de la partida, luego en el de
+      VPA, como lo buscaba la version DOS. OpenData no sirve: su nombre es
+      string[12] y ResName puede ser una ruta (ResFile= en VPA.INI). }
+    if not OpenFile(f,addir+ResName,0,No) then OpenFile(f,ResName,0,Yes);
     CloseData(f);
     FillChar(ScreenPos,SizeOf(ScreenPos),0);
     VPASCR_INI:='VPASCR'+plstr+'.INI';

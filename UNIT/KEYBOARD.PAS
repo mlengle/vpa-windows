@@ -27,6 +27,12 @@ var
   bufKey  : word;      { buffer de retroceso de 1 tecla (para PreviewKey/peek) }
   bufFull : boolean;
 
+{$IFDEF WINDOWS}
+{ VPA-Windows: Sleep de kernel32 declarado a mano; la unidad Windows entera
+  choca con nombres de esta unidad en modo -Mtp. }
+procedure WinSleep (ms : longword); stdcall; external 'kernel32' name 'Sleep';
+{$ENDIF}
+
 procedure CpuNap;
 {$IFDEF UNIX}
   var ts : TTimeSpec;
@@ -36,6 +42,9 @@ procedure CpuNap;
     ts.tv_sec  := 0;
     ts.tv_nsec := 5 * 1000000;   { 5 ms: ~200 Hz, suficiente para raton/teclado }
     fpnanosleep(@ts, nil);
+    {$ENDIF}
+    {$IFDEF WINDOWS}
+    WinSleep(5);
     {$ENDIF}
   end;
 
@@ -66,7 +75,7 @@ function RawReadKey : word;
       k := word(ord(BackendReadKey)) shl 8
     else
       k := ord(c);
-    {$IFDEF UNIX}
+    {$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}
     { T0.4 de WAYLAND.md: Ctrl-F12 ($8A00) vuelca el framebuffer a disco cuando
       VPA_GRAPH_DUMP esta definida. Es el unico punto por el que pasan todas las
       teclas de VPA, asi que basta con interceptar aqui.

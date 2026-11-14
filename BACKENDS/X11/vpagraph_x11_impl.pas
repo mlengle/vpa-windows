@@ -54,7 +54,9 @@ uses
   vpagraph_x11_input;
 
 const
-  BackendNameStr    : PAnsiChar = {$IFDEF VPAG_WAYLAND}'wayland'{$ELSE}'x11'{$ENDIF};
+  { VPA-Windows: el plugin SDL3 de Windows es este mismo adaptador compilado
+    con -dVPAG_WAYLAND; en Windows se llama 'sdl3' (vpagraph-sdl3.dll). }
+  BackendNameStr    : PAnsiChar = {$IFDEF VPAG_WAYLAND}{$IFDEF WINDOWS}'sdl3'{$ELSE}'wayland'{$ENDIF}{$ELSE}'x11'{$ENDIF};
   { Decision D-19: el motor y con que se compilo, compuesto en tiempo de
     compilacion para que no se desactualice solo. Se copia a un buffer
     estatico en la inicializacion: una constante PAnsiChar formada por

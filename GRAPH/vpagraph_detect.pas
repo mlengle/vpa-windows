@@ -33,6 +33,10 @@
   no lo tiene, el fallo se le cuenta con su motivo, no se le cambia por
   otro backend.
 
+  VPA-Windows: en Windows no hay sesion que detectar. El plan automatico es
+  siempre [sdl3] (vpagraph-sdl3.dll, la consola SDL3 con el controlador de
+  video 'windows'); VPA_GRAPH_BACKEND=sdl3 lo fuerza igual.
+
   Todo texto que sale de aqui (motivos, detalles) esta en ingles, como el
   resto de la salida de consola de VPA.
 
@@ -69,6 +73,7 @@ const
   VPAGD_AUTO    = 'auto';
   VPAGD_X11     = 'x11';
   VPAGD_WAYLAND = 'wayland';
+  VPAGD_SDL3    = 'sdl3';      { VPA-Windows: plugin SDL3 (vpagraph-sdl3.dll) }
 
   { Backends que puede contener un plan. Hoy dos; KMS/DRM o framebuffer
     (seccion 1.1 de WAYLAND.md) entrarian aqui. }
@@ -140,6 +145,23 @@ function VPAGraph_LoadPlanEntry(const Plan: TVPAGraphPlan; Index: Integer;
 
 implementation
 
+{$IFDEF WINDOWS}
+uses
+  Windows;
+
+{ El entorno vivo del proceso, como en el cargador. }
+function GetEnv(const Name: AnsiString): AnsiString;
+var
+  Buf: array[0..4095] of AnsiChar;
+  N: DWORD;
+begin
+  N := GetEnvironmentVariableA(PAnsiChar(Name), @Buf[0], SizeOf(Buf));
+  if (N = 0) or (N >= SizeOf(Buf)) then
+    Result := ''
+  else
+    SetString(Result, PAnsiChar(@Buf[0]), N);
+end;
+{$ELSE}
 { Mismo getenv de libc que en el cargador, y por el mismo motivo: ver el
   entorno tal como esta AHORA, no la copia que el RTL tomo al arrancar (el
   arnes de pruebas cambia las variables en ejecucion). }
@@ -152,6 +174,7 @@ begin
   P := c_getenv(PAnsiChar(Name));
   if P = nil then Result := '' else Result := AnsiString(P);
 end;
+{$ENDIF}
 
 { Minusculas ASCII y sin espacios en los extremos. Basta para valores de
   variables de entorno; no hace falta SysUtils. }
@@ -240,7 +263,8 @@ begin
   Plan.Requested := Requested;
 
   { --- Forzado (T4.3): un backend, sin respaldo, sin mirar el entorno --- }
-  if (Requested = VPAGD_X11) or (Requested = VPAGD_WAYLAND) then
+  if (Requested = VPAGD_X11) or (Requested = VPAGD_WAYLAND) or
+     (Requested = VPAGD_SDL3) then
   begin
     Plan.Forced := True;
     ForcedBy := 'forced by ' + VPAGD_ENV_BACKEND + '=' + Requested +
@@ -250,10 +274,19 @@ begin
   else if Requested <> VPAGD_AUTO then
   begin
     Plan.Error := VPAGD_ERR_BAD_REQUEST;
+    {$IFDEF WINDOWS}
+    Plan.Detail := '"' + Session.Requested + '" is not valid, use ' +
+      VPAGD_AUTO + ' or ' + VPAGD_SDL3;
+    {$ELSE}
     Plan.Detail := '"' + Session.Requested + '" is not valid, use ' +
       VPAGD_AUTO + ', ' + VPAGD_X11 + ' or ' + VPAGD_WAYLAND;
+    {$ENDIF}
   end
   else
+  {$IFDEF WINDOWS}
+    { --- Automatico en Windows: un unico backend --- }
+    AddToPlan(Plan, VPAGD_SDL3, 'Windows: SDL3 backend (native Win32 window)');
+  {$ELSE}
   begin
     { --- Automatico (T4.2) --- }
     W := Session.WaylandDisplay <> '';
@@ -303,6 +336,7 @@ begin
           Session.SessionType + ' is not a graphical session type';
     end;
   end;
+  {$ENDIF}
 
   if VPAGraph_LoaderDebug then
   begin

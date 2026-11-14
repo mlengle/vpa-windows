@@ -1244,7 +1244,8 @@ procedure LoadPic (lr:LRtype; pic:byte; rot,fli,truncpal,process:boolean);
   begin
     if (pic<=0) or (pic>151) then begin pic:=111; rot:=No end;
     haveData := False;
-    if OpenFile(f,ResName,0,No) then
+    { partida primero, luego directorio de VPA (como en VPAINIT) }
+    if OpenFile(f,addir+ResName,0,No) or OpenFile(f,ResName,0,No) then
     begin
       Seek(f,longint(pic-1)*RLen);
       BlockRead(f,rbuf^,RSize);
@@ -1568,7 +1569,7 @@ procedure TCombatInit (VCRPalette:boolean);
     FillChar(img[Left]^, ImgSize, 0);
     FillChar(img[Right]^, ImgSize, 0);
     { guardar la paleta 0..15 para restaurarla al salir (combate la reescribe) }
-    {$IFDEF UNIX}
+    {$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}
     for i:=0 to 15 do
     begin
       GetRGBPalette(i, r, g, b);
@@ -1582,7 +1583,7 @@ procedure TCombatInit (VCRPalette:boolean);
 procedure TCombatFinish;
   var i: int;
   begin
-    {$IFDEF UNIX}
+    {$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}
     { restaurar la paleta del juego (que el combate habia reescrito en 1..15) }
     for i:=0 to 15 do
       SetRGBPalette(i, savedPal[i,0], savedPal[i,1], savedPal[i,2]);

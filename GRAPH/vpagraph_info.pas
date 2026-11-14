@@ -73,12 +73,19 @@ begin
   FillChar(Plugin, SizeOf(Plugin), 0);
   Plugin.Path := '';
 
+  {$IFDEF WINDOWS}
+  { VPA-Windows: no hay sesion X11/Wayland que mostrar. }
+  WriteLn('VPA-Windows graphics backend information (--graph-info)');
+  WriteLn;
+  WriteLn('Session environment:');
+  {$ELSE}
   WriteLn('VPA-Linux graphics backend information (--graph-info)');
   WriteLn;
   WriteLn('Session environment:');
   WriteLn('  ', VPAGD_ENV_WAYLAND, '      = ', ShowEnv(Session.WaylandDisplay));
   WriteLn('  ', VPAGD_ENV_X11, '              = ', ShowEnv(Session.Display));
   WriteLn('  ', VPAGD_ENV_SESSION, '     = ', ShowEnv(Session.SessionType));
+  {$ENDIF}
   WriteLn('  ', VPAGD_ENV_BACKEND, '    = ', ShowEnv(Session.Requested));
   WriteLn('  ', VPAGL_ENV_PLUGIN_DIR, ' = ', ShowEnv(Session.PluginDir));
   WriteLn('  ', VPAGL_ENV_DEBUG, '      = ', ShowEnv(Session.Debug));

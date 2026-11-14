@@ -3841,7 +3841,7 @@ begin
                   end
                   else if ltype=LockP then begin
                     if RWMode and (TTurn^.data^.eplan[lock and LockLo].activity and EP_Base=0) then BuildBase
-                    else if RWMode and (lplan^.build=1) then CancelBase
+                    else if RWMode and (lplan<>nil) and (lplan^.build=1) then CancelBase
                     else if lbase=nil then BaseInfo else Exit; end
                   else if ((PlanN>0) and (lock<>0)) then begin
                     ltype:=LockP;
@@ -3861,7 +3861,7 @@ begin
                       else if (ltype=LockP) and (lbase<>nil) and
                               (CheckClone(lock and LockLo)>=0) and BuildClone then Exit;
                     end;
-                    if RWMode and (ltype=LockP) and (lplan^.owner<>0) then
+                    if RWMode and (ltype=LockP) and (lplan<>nil) and (lplan^.owner<>0) then
                         if (lplan^.owner=player) then SimOwnGroundAttack
                                                  else SimGroundAttack(1); 
                   end;
@@ -3950,7 +3950,7 @@ begin
                   end;
 {n}     ord('n'): if Abs(distlock) and LockHi=LockS then NextPoint
                   else if RWMode and (distlock=0) and (ltype=LockS) then SetName
-                  else if RWMode and (ltype=LockP) and (lplan^.build=1) then      PretendBase;                   
+                  else if RWMode and (ltype=LockP) and (lplan<>nil) and (lplan^.build=1) then PretendBase;                   
 {o}     ord('o'): if RWMode and (ltype=LockP) and (lbase<>nil) then SetBaseOrder
                   else if RWMode and ((ltype=LockS) or (ltype=LockP)) then OKShip(1);
 {O}     ord('O'),
@@ -4092,8 +4092,14 @@ begin
                             mt0:=Timer;
                             mt1:=mt0;
                           end;
-        EvRtPress       : if (Timer<mt0) or (Timer>=mt0+2) then
-                            begin MouseRtPress; mt0:=Timer end;
+        { port: el limite era (Timer>=mt0+2), dos ticks de BIOS de 55 ms, o sea un
+          paso de scroll cada 55-110 ms. En DOS DrawMap tardaba eso o mas y no se
+          notaba; con DrawMap en ~25 ms el auto-scroll iba a ~9 pasos/s y se
+          sentia lento y a saltos. Ahora el limite es en ms reales, contados
+          desde el INICIO del paso anterior (si se cuentan desde el final, el
+          DrawMap se suma y salian ~57 ms en vez de 35, medido). }
+        EvRtPress       : if longword(MsTimer-rt0)>=ScrollStepMs then
+                            begin rt0:=MsTimer; MouseRtPress; mt0:=Timer end;
         EvCtPress       : begin
                             if KbdFlags and KbdShft<>0 then Zoom(255) else
                             if KbdFlags and KbdCtrl<>0 then Zoom(0) else Zoom(1);
@@ -4103,7 +4109,7 @@ begin
       if (mEv0<>EvMouseMove) and (mEvent=0) then MouseOn;
       mEv0:=0;
       LastActivityTime:=Timer;
-      {$IFDEF UNIX}if mEvent<>0 then CpuNap;{$ENDIF}   { scroll continuo: no clavar CPU }
+      {$IF DEFINED(UNIX) OR DEFINED(WINDOWS)}if mEvent<>0 then CpuNap;{$ENDIF}   { scroll continuo: no clavar CPU }
     end;
     if (ScreenSaverTime>0) and (Timer>LastActivityTime+ScreenSaverTime) then
       begin ch:=13; Exit end;

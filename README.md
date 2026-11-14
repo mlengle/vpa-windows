@@ -10,6 +10,7 @@ and a native bit-exact PHost combat viewer) with no DOSBox or dosemu involved.
   **[`README.en.md`](README.en.md)**
 - 🔧 Build from source: **[`BUILD.en.md`](BUILD.en.md)**
 - ▶️ Run the pre-built binary: **[`HOWTO.en.md`](HOWTO.en.md)**
+- 🪟 Windows build (native `VPA.exe` + SDL3 plugin): **[`WINDOWS.md`](WINDOWS.md)**
 
 ---
 

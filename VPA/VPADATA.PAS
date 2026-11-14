@@ -861,7 +861,9 @@ var
 type
   THullFuncQueryResult = record data:pointer; count:int; end;
 { Block from VPA2.PAS (estado del nucleo) }
+const   ScrollStepMs    = 35;   { port: un paso de scroll del mapa cada 35 ms como mucho }
 var     mt0,mt1         : longint;
+        rt0             : longword;   { MsTimer del ultimo paso de scroll }
         MineN,IonN,WormN,UfoN,MarkN : int;
         BL0             : int;
         bOver           : boolean;
@@ -913,7 +915,9 @@ type
                          end;
 
 {Block Start from VPA2.PAS}                         
+const   ScrollStepMs    = 35;   { port: un paso de scroll del mapa cada 35 ms como mucho }
 var     mt0,mt1         : longint;
+        rt0             : longword;   { MsTimer del ultimo paso de scroll }
         MineN,IonN,WormN,UfoN,MarkN   : int;
         BL0             : int;
         bOver           : boolean;
@@ -1289,6 +1293,20 @@ function EraseGameFile (const name:string) : boolean;
     EraseGameFile := IOResult=0;
   end;
 
+{ Reset(f,1) que solo cuenta si el fichero existe y no esta vacio. Un fichero
+  vacio se CIERRA antes de devolver No: antes quedaba abierto, y en Windows
+  el handle abierto impide el Rewrite posterior del mismo fichero (al salir,
+  SaveNotes no podia escribir un VPANOTx.DAT vacio y acababa en Halt). En
+  Linux no se notaba porque alli un fichero abierto no bloquea nada. }
+function ResetNonEmpty (var f:file) : boolean;
+  begin
+    ResetNonEmpty:=No;
+    Reset(f,1);
+    if IOResult<>0 then Exit;
+    if FileSize(f)=0 then begin Close(f); if IOResult<>0 then ; Exit end;
+    ResetNonEmpty:=Yes;
+  end;
+
 { Nota (port Linux): igual que OpenData/OpenRW/Exists/OpenText, el nombre pasa
   por ResolveCase para tolerar la caja del nombre en disco. Por aqui entran
   RESOURCE.PLN, VPA.HLP y la fuente del mapa, que en DOS venian siempre en
@@ -1301,8 +1319,7 @@ function OpenFile (var f:file; name:str79; mode:byte; mustbe:boolean) : boolean;
     if stale<>0 then ;
     FileMode:=mode;
     Assign(f,ResolveCase(name));
-    Reset(f,1);
-    if (IOResult<>0) or (FileSize(f)=0) then
+    if not ResetNonEmpty(f) then
       if mustbe then begin Writeln(#13#10'Can''t read file ',name); Halt end
                      else Exit;
     OpenFile:=Yes;
@@ -1324,12 +1341,10 @@ function OpenData (var f:file; name:filename; mustbe:boolean) : boolean;
     if stale<>0 then ;
     FileMode:=0;
     Assign(f,ResolveCase(addir+name));
-    Reset(f,1);
-    if (IOResult<>0) or (FileSize(f)=0) then
+    if not ResetNonEmpty(f) then
     begin
       Assign(f,ResolveCase(name));
-      Reset(f,1);
-      if (IOResult<>0) or (FileSize(f)=0) then
+      if not ResetNonEmpty(f) then
         if mustbe then begin Writeln(#13#10'Can''t read file ',name); Halt end
                   else Exit;
     end;
@@ -1345,8 +1360,7 @@ function Exists (name:filename) : boolean;
     if stale<>0 then ;
     FileMode:=0;
     Assign(f,ResolveCase(addir+name));
-    Reset(f,1);
-    if (IOResult<>0) or (FileSize(f)=0) then
+    if not ResetNonEmpty(f) then
       Exit;
     Close(f);
     Exists:=Yes;
@@ -1368,7 +1382,12 @@ function OpenRW (var f:file; name:filename; mustbe:boolean) : boolean;
   end;
 
 function OpenW (var f:file; name:filename; mustbe:boolean) : boolean;
+  var stale : integer;
   begin
+    { ver la nota en OpenData: con un error de E/S pendiente FPC ni siquiera
+      ejecuta el Rewrite, y SaveNotes al salir acababa en Halt sin guardar. }
+    stale:=IOResult;
+    if stale<>0 then ;
     Assign(f,addir+name);
     Rewrite(f,1);
     if IOResult=0 then OpenW:=Yes

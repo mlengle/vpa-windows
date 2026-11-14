@@ -12,6 +12,31 @@
   publica PTCSDLInputState.
   Fuera de alcance: modos, relative mouse mode, opciones de ptcpas.conf. }
 
+{ VPA-Windows: el controlador de video que se fuerza por hint y la lectura del
+  entorno, lo unico de esta consola que depende de la plataforma. En Linux el
+  controlador es 'wayland' (el plugin X11 es otra consola); en Windows,
+  'windows'. fpgetenv es de BaseUnix y no existe en Windows. }
+const
+  SDLVideoDriver = {$IFDEF WINDOWS}'windows'{$ELSE}'wayland'{$ENDIF};
+
+function SDLConsoleGetEnv(const AName: AnsiString): AnsiString;
+{$IFDEF WINDOWS}
+var
+  buf: array[0..1023] of AnsiChar;
+  n: DWORD;
+begin
+  n := GetEnvironmentVariableA(PAnsiChar(AName), @buf[0], SizeOf(buf));
+  if (n = 0) or (n >= SizeOf(buf)) then
+    Result := ''
+  else
+    SetString(Result, PAnsiChar(@buf[0]), n);
+end;
+{$ELSE}
+begin
+  Result := fpgetenv(PAnsiChar(AName));
+end;
+{$ENDIF}
+
 { Estado de entrada vivo de la consola (modificadores y puntero dentro de la
   ventana). Lo escribe SOLO el hilo de la consola, al final de cada
   PumpEvents; lo lee cualquiera con PTCSDLInputState. Es una palabra de 32
@@ -64,7 +89,7 @@ begin
     La mascara es del hilo y este se acaba aqui. }
   SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide,
                     exOverflow, exUnderflow, exPrecision]);
-  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, 'wayland');
+  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, SDLVideoDriver);
   SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, '1');
   if not SDL_InitSubSystem(SDL_INIT_VIDEO) then
     exit;
@@ -167,14 +192,14 @@ begin
                     exOverflow, exUnderflow, exPrecision]);
   { Hint y no variable de entorno (T8B.3): si no hay Wayland, SDL_Init
     falla en vez de caer a X11 en silencio. }
-  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, 'wayland');
+  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, SDLVideoDriver);
   { Las senales son del proceso, no de un plugin. Por omision SDL captura
     SIGINT y SIGTERM y las convierte en SDL_EVENT_QUIT, o sea en un "cerrar
     ventana" que VPA solo atiende en el mapa: un 'kill' con un menu o la
     ayuda abiertos no mataba a VPA. Con X11 la senal mata, y aqui tambien. }
   SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, '1');
   if not SDL_InitSubSystem(SDL_INIT_VIDEO) then
-    raise TPTCError.Create('SDL_Init(video, wayland): ' + SDL_GetError);
+    raise TPTCError.Create('SDL_Init(video, ' + SDLVideoDriver + '): ' + SDL_GetError);
   FOpen := True;
   SDLScreenSize := SDLPrimaryDisplaySize;
   { HiDPI (Fase 10, T10.5): sin esta bandera SDL dibuja a la resolucion
@@ -217,9 +242,9 @@ begin
   SetLength(FPixels, AWidth * AHeight);
   FArea := TPTCArea.Create(0, 0, AWidth, AHeight);
   FClip := FArea;
-  FPresentedPrefix := fpgetenv('VPA_GRAPH_PRESENTED');
+  FPresentedPrefix := SDLConsoleGetEnv('VPA_GRAPH_PRESENTED');
   FPresentedFrame := 0;
-  FKeyTrace := fpgetenv('VPA_KEY_TRACE') <> nil;
+  FKeyTrace := SDLConsoleGetEnv('VPA_KEY_TRACE') <> '';
   UpdateCursor;
   if not FCursorVisible then
     SDL_HideCursor;

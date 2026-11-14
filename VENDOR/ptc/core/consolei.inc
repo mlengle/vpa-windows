@@ -130,9 +130,9 @@ const
  {$IFDEF GO32V2}
   ConsoleTypesNumber = 4;
  {$ENDIF GO32V2}
- {$IF defined(Win32) OR defined(Win64)}
+ {$IFDEF PTC_WIN32CONSOLES}
   ConsoleTypesNumber = 2;
- {$ENDIF defined(Win32) OR defined(Win64)}
+ {$ENDIF PTC_WIN32CONSOLES}
  {$IFDEF WinCE}
   ConsoleTypesNumber = 2;
  {$ENDIF WinCE}
@@ -159,10 +159,10 @@ const
    (ConsoleClass: TTEXTFX2Console;   Names: ('TEXTFX2', 'Text'); OpenGL: False)
   {$ENDIF GO32V2}
 
-  {$IF defined(Win32) OR defined(Win64)}
+  {$IFDEF PTC_WIN32CONSOLES}
    (ConsoleClass: TDirectXConsole;   Names: ('DirectX', '');     OpenGL: False),
    (ConsoleClass: TGDIConsole;       Names: ('GDI', '');         OpenGL: True)
-  {$ENDIF defined(Win32) OR defined(Win64)}
+  {$ENDIF PTC_WIN32CONSOLES}
 
   {$IFDEF WinCE}
    (ConsoleClass: TWinCEGAPIConsole; Names: ('GAPI', '');        OpenGL: False),

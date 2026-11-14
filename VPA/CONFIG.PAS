@@ -1117,6 +1117,8 @@ procedure InitHullFunc;
         size    : word;
         i       : int;
         p       : pointer;
+        anyhull : boolean;  { PHost 4: "Hull = *" = todos los cascos }
+        lvl     : int;      { PHost 4: "Level = n", nivel de experiencia minimo }
   procedure Warning;
     begin
       Writeln(s,' in line ',l,' of ',fnm);
@@ -1136,25 +1138,9 @@ procedure InitHullFunc;
       ClearInit;
       Move(DefaultHullFunc,HullFunc^,SizeOf(DefaultHullFunc));
     end;
-  procedure CheckAllow (rp:byte);
-    var allow   : boolean;
-        rs      : string[2];
-        i       : int;
+  procedure SetOne (hull:byte; allow:boolean);
+    var i       : int;
     begin
-      if (hull=0) or (func=255) then
-      begin
-        s:='Hull and Function must be set before "'+s1+'"';
-        Warning;
-        Exit;
-      end;
-      rs:=NStr0(rp);
-      allow:=No;
-      while ls>0 do
-      begin
-        Parse(s,s2,' '#9);
-        if (s2='-') or (s2='-'+rs) then allow:=No else
-        if (s2='+') or (s2=rs) or (s2='+'+rs) then allow:=Yes;
-      end;
       i:=IsHullFunc(hull,HullFuncs(func));
       if (i<>0) and (not allow) then HullFunc^[i]:=0 else
       if (i=0) and allow then
@@ -1170,6 +1156,33 @@ procedure InitHullFunc;
         HullFunc:=p;
         HullFunc^[HullFN]:=func*256+hull;
       end;
+    end;
+  procedure CheckAllow (rp:byte);
+    var allow   : boolean;
+        rs      : string[2];
+        h       : byte;
+    begin
+      if ((hull=0) and not anyhull) or (func=255) then
+      begin
+        s:='Hull and Function must be set before "'+s1+'"';
+        Warning;
+        Exit;
+      end;
+      { PHost 4: una asignacion con Level > 0 solo vale para naves con esa
+        experiencia. La tabla de VPA es por casco, no por nave, asi que se
+        ignora: se muestra lo que tiene una nave sin experiencia. }
+      if lvl>0 then Exit;
+      rs:=NStr0(rp);
+      allow:=No;
+      while ls>0 do
+      begin
+        Parse(s,s2,' '#9);
+        if (s2='-') or (s2='-'+rs) then allow:=No else
+        if (s2='+') or (s2=rs) or (s2='+'+rs) then allow:=Yes;
+      end;
+      if anyhull then
+        for h:=1 to 105 do SetOne(h,allow)
+      else SetOne(hull,allow);
     end;
   begin
     CheckMem(SizeOf(DefaultHullFunc));
@@ -1192,7 +1205,7 @@ procedure InitHullFunc;
     CloseData(hs);
 
     ClearInit;
-    hull:=0; func:=255;
+    hull:=0; func:=255; anyhull:=No; lvl:=0;
     l:=0;
     while not Eof(f) do
     begin
@@ -1209,6 +1222,8 @@ procedure InitHullFunc;
       end else
       if StrCmp(s1,'Hull',Min(ls1,4)) then
       begin
+        lvl:=0; anyhull:=(ls>0) and (s[1]='*');
+        if anyhull then begin hull:=0; Continue end;
         hull:=Value(s);
         if (hull<1) or (hull>105) then
         begin
@@ -1219,6 +1234,7 @@ procedure InitHullFunc;
       end else
       if StrCmp(s1,'Function',Min(ls1,8)) then
       begin
+        lvl:=0;
         if s[1] in ['0'..'9'] then func:=Value(s)
         else begin
           func:=byte(HullFunc1);
@@ -1230,6 +1246,11 @@ procedure InitHullFunc;
           end;
           if func>byte(HullFunc2) then begin BadValue; func:=255; Continue end;
         end;
+      end else
+      if StrCmp(s1,'Level',Min(ls1,5)) then
+      begin
+        if not (s[1] in ['0'..'9']) then begin BadValue; Continue end;
+        lvl:=Value(s);
       end else
       if StrCmp(s1,'RacesAllowed',Min(ls1,12)) then CheckAllow(Race[player]) else
       if StrCmp(s1,'PlayersAllowed',Min(ls1,14)) then CheckAllow(player) else

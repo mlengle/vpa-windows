@@ -44,6 +44,8 @@
        a ser TSDLConsole (sdl/sdlconsole*.inc), codigo nuevo de VPA-Linux
        sobre SDL3, y la unidad deja de enlazar libX11 (WAYLAND.md, Fase 8,
        docs/adr-001-motor-wayland.md). Sin ese define no cambia nada.
+    5. VPA-Windows: en Windows, -dPTC_SDL3 tambien elige TSDLConsole en lugar
+       de las consolas DirectX/GDI (PTC_WIN32CONSOLES), que no se vendorizan.
   ===================================================================== }
 
 {$MODE objfpc}
@@ -64,6 +66,17 @@
     {$DEFINE X11}
   {$ENDIF}
 {$ENDIF UNIX}
+
+{$IF defined(WIN32) OR defined(WIN64)}
+  {$IFDEF PTC_SDL3}
+    { VPA-Windows: con -dPTC_SDL3 la consola de Windows es la misma consola
+      SDL3 de sdl/ que usa el plugin Wayland en Linux; las consolas DirectX y
+      GDI de ptc (win32/) no se vendorizan ni se compilan. }
+    {$DEFINE SDL3CONSOLE}
+  {$ELSE}
+    {$DEFINE PTC_WIN32CONSOLES}
+  {$ENDIF}
+{$ENDIF}
 
 {$IFDEF X11}
 
@@ -158,7 +171,14 @@ uses
 
 {$IF defined(WIN32) OR defined(WIN64)}
 uses
-  Windows, p_ddraw, glext;
+  Windows
+  {$IFDEF PTC_WIN32CONSOLES}
+    , p_ddraw, glext
+  {$ENDIF PTC_WIN32CONSOLES}
+  {$IFDEF SDL3CONSOLE}
+    , Math, ctypes, SDL3
+  {$ENDIF SDL3CONSOLE}
+  ;
 {$ENDIF defined(WIN32) OR defined(WIN64)}
 
 {$IFDEF WinCE}
@@ -243,7 +263,7 @@ end;
 {$INCLUDE dos/includes.inc}
 {$ENDIF GO32V2}
 
-{$IF defined(Win32) OR defined(Win64)}
+{$IFDEF PTC_WIN32CONSOLES}
 {$INCLUDE win32/base/win32cursord.inc}
 {$INCLUDE win32/base/win32cursormoded.inc}
 {$INCLUDE win32/base/win32monitord.inc}
@@ -284,7 +304,7 @@ end;
 {$INCLUDE win32/gdi/win32openglwindowi.inc}
 {$INCLUDE win32/gdi/win32gdihooki.inc}
 {$INCLUDE win32/gdi/win32gdiconsolei.inc}
-{$ENDIF defined(Win32) OR defined(Win64)}
+{$ENDIF PTC_WIN32CONSOLES}
 
 {$IFDEF WinCE}
 {$INCLUDE wince/includes.inc}
@@ -327,13 +347,13 @@ initialization
   {$IFDEF ENABLE_C_API}
   ptc_error_handler_function := @ptc_error_handler_default;
   {$ENDIF ENABLE_C_API}
-  {$IF defined(WIN32) OR defined(WIN64)}
+  {$IFDEF PTC_WIN32CONSOLES}
   TWin32Hook_Monitor := TWin32Monitor.Create;
-  {$ENDIF defined(WIN32) OR defined(WIN64)}
+  {$ENDIF PTC_WIN32CONSOLES}
 
 finalization
-  {$IF defined(WIN32) OR defined(WIN64)}
+  {$IFDEF PTC_WIN32CONSOLES}
   FreeAndNil(TWin32Hook_Monitor);
-  {$ENDIF defined(WIN32) OR defined(WIN64)}
+  {$ENDIF PTC_WIN32CONSOLES}
 
 end.
