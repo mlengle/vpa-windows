@@ -22,7 +22,10 @@ User docs: `README.md`, `HOWTO.md` (playing), `BUILD.md` (building, port design)
 ```
 
 Releases are tagged `v<version>-win<N>` (e.g. `v3.67.7-win1`); plain
-`v3.67.x` tags belong to upstream VPA-Linux.
+`v3.67.x` tags belong to upstream VPA-Linux. Always pass
+`-R mlengle/vpa-windows` to `gh`: with a remote named `upstream`, `gh`
+otherwise targets `promano7/vpa-linux` (`gh repo set-default` is only local
+git config).
 
 - The scoop FPC is i386-win32 only, so builds are 32-bit. If `fpc` cannot find
   its units, `fpc.cfg` is missing; the script prints the `fpcmkcfg` fix.
